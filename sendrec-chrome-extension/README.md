@@ -2,19 +2,27 @@
 
 A Chrome/Chromium browser extension for recording your screen and uploading directly to [SendRec](https://app.sendrec.eu) or a self-hosted instance.
 
-![SendRec Chrome Extension — Settings](screenshots/settings_light.png)
+[![Get the Add-on](https://blog.mozilla.org/addons/files/2015/11/get-the-addon.png)](https://addons.mozilla.org/addon/sendrec-screen-recorder)
 
-![SendRec Chrome Extension — Popup](screenshots/popup_light.png)
+## Screenshots
+
+**Settings page**
+
+![SendRec Chrome Extension - Settings](screenshots/settings_light.png)
+
+**Popup**
+
+![SendRec Chrome Extension - Popup](screenshots/popup_light.png)
 
 ## Features
 
-- **Screen Recording** — Record entire screen, specific tab, or webcam
-- **Webcam overlay** — Record screen + webcam simultaneously
-- **Audio capture** — Microphone and/or system audio
-- **Pause/Resume** — Pause and resume recordings
-- **Direct upload** — Uploads to SendRec via presigned URLs (no server proxy)
-- **Self-hosted support** — Configure any SendRec-compatible server URL
-- **Share link** — Get a share link immediately after upload
+- **Screen Recording** - Record entire screen, specific tab, or webcam
+- **Webcam overlay** - Record screen + webcam simultaneously
+- **Audio capture** - Microphone and/or system audio
+- **Pause/Resume** - Pause and resume recordings
+- **Direct upload** - Uploads to SendRec via presigned URLs (no server proxy)
+- **Self-hosted support** - Configure any SendRec-compatible server URL
+- **Share link** - Get a share link immediately after upload
 
 ## Installation (Developer Mode)
 
@@ -49,7 +57,7 @@ A Chrome/Chromium browser extension for recording your screen and uploading dire
 
 ## Authentication
 
-The extension uses your SendRec email and password to obtain a JWT session token. The token is stored locally and auto-refreshes when expired. Your password is not stored — only the session token is kept.
+The extension uses your SendRec email and password to obtain a JWT session token. The token is stored locally and auto-refreshes when expired. Your password is not stored, only the session token is kept.
 
 ## Architecture
 
@@ -74,9 +82,9 @@ sendrec-chrome-extension/
 
 ## Upload Flow
 
-1. `POST /api/videos` — Creates a video record, returns presigned upload URL
-2. `PUT <presigned-url>` — Uploads the recording directly to S3-compatible storage
-3. `PATCH /api/videos/{id}` — Marks the video as ready for processing
+1. `POST /api/videos` - Creates a video record, returns presigned upload URL
+2. `PUT <presigned-url>` - Uploads the recording directly to S3-compatible storage
+3. `PATCH /api/videos/{id}` - Marks the video as ready for processing
 
 ## Browser Compatibility
 
@@ -89,14 +97,14 @@ Works in all Chromium-based browsers:
 
 ## Permissions
 
-- `storage` — Save extension settings
-- `tabCapture` — Record browser tabs
-- `offscreen` — MediaRecorder access (required in Manifest V3)
-- Host permissions — Communicate with your SendRec server
+- `storage` - Save extension settings
+- `tabCapture` - Record browser tabs
+- `offscreen` - MediaRecorder access (required in Manifest V3)
+- Host permissions - Communicate with your SendRec server
 
 ## Troubleshooting
 
-- **"Not signed in"** — Go to extension settings and sign in with your email and password
-- **"Session expired"** — Re-open settings and sign in again
-- **Screen sharing prompt doesn't appear** — Make sure you're not in an incognito window
-- **No system audio** — System audio capture requires selecting "Share tab audio" or "Share system audio" in the Chrome dialog
+- **"Not signed in"** - Go to extension settings and sign in with your email and password
+- **"Session expired"** - Re-open settings and sign in again
+- **Screen sharing prompt doesn't appear** - Make sure you're not in an incognito window
+- **No system audio** - System audio capture requires selecting "Share tab audio" or "Share system audio" in the Chrome dialog

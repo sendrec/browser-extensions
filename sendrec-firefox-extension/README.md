@@ -2,7 +2,13 @@
 
 A Firefox browser extension for recording your screen and uploading directly to [SendRec](https://app.sendrec.eu) or a self-hosted instance.
 
+## Screenshots
+
+**Settings page**
+
 ![SendRec Firefox Extension — Settings](screenshots/settings_light.png)
+
+**Popup**
 
 ![SendRec Firefox Extension — Popup](screenshots/popup_light.png)
 
