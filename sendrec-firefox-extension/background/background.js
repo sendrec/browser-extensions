@@ -167,22 +167,65 @@ function cleanup() {
   }
 }
 
-async function fetchWithTimeout(url, options, timeoutMs, label) {
+// Fetch with stall detection - aborts if upload doesn't make progress for 60s
+async function fetchWithStallDetection(url, options, timeoutMs, label) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let stalledTimer = null;
+  let completedOrFailed = false;
+  
+  const cleanup = () => {
+    completedOrFailed = true;
+    if (stalledTimer) clearTimeout(stalledTimer);
+  };
+  
+  // Set stall detector - abort if stuck for 60 seconds
+  stalledTimer = setTimeout(() => {
+    if (!completedOrFailed) {
+      controller.abort();
+    }
+  }, 60000);
+  
+  // Also set main timeout as safety net
+  const mainTimer = setTimeout(() => {
+    if (!completedOrFailed) {
+      controller.abort();
+    }
+  }, timeoutMs);
+  
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       ...options,
       signal: controller.signal
     });
+    cleanup();
+    return res;
   } catch (err) {
+    cleanup();
+    clearTimeout(mainTimer);
     if (err && err.name === 'AbortError') {
-      throw new Error(`${label} timed out after ${Math.floor(timeoutMs / 1000)}s`);
+      // Determine if it was stall timeout (< 60s) or main timeout
+      const isStall = stalledTimer !== null;
+      if (isStall) {
+        throw new Error(`${label} stalled (no progress for 60s)`);
+      } else {
+        throw new Error(`${label} timed out after ${Math.floor(timeoutMs / 1000)}s`);
+      }
     }
     throw err;
   } finally {
-    clearTimeout(timeoutId);
+    cleanup();
+    clearTimeout(mainTimer);
   }
+}
+
+// Calculate upload timeout based on file size
+// Assumes minimum 100kbps connection speed + 60s buffer
+function getUploadTimeout(fileSizeBytes) {
+  const minSpeedBps = 100 * 1024; // 100 kbps minimum
+  const bufferMs = 60000; // 60s buffer
+  const estimatedMs = (fileSizeBytes / minSpeedBps) * 1000 + bufferMs;
+  // Cap between 3 min and 20 min
+  return Math.min(Math.max(estimatedMs, 180000), 1200000);
 }
 
 async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
@@ -219,7 +262,7 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
     createHeaders['X-Organization-Id'] = config.organizationId;
   }
 
-  const createRes = await fetchWithTimeout(`${serverUrl}/api/videos`, {
+  const createRes = await fetchWithStallDetection(`${serverUrl}/api/videos`, {
     method: 'POST',
     credentials: 'include',
     headers: createHeaders,
@@ -238,11 +281,11 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
   recordingState.progress = 30;
   broadcastState();
 
-  const uploadRes = await fetchWithTimeout(uploadUrl, {
+  const uploadRes = await fetchWithStallDetection(uploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': body.contentType },
     body: screenBlob
-  }, 180000, 'Screen upload');
+  }, getUploadTimeout(screenBlob.size), 'Screen upload');
 
   if (!uploadRes.ok) {
     throw new Error(`Failed to upload video: ${uploadRes.status}`);
@@ -253,11 +296,11 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
 
   // Upload webcam if present
   if (webcamBlob && videoData.webcamUploadUrl) {
-    const wcRes = await fetchWithTimeout(videoData.webcamUploadUrl, {
+    const wcRes = await fetchWithStallDetection(videoData.webcamUploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': body.webcamContentType },
       body: webcamBlob
-    }, 180000, 'Webcam upload');
+    }, getUploadTimeout(webcamBlob.size), 'Webcam upload');
     if (!wcRes.ok) {
       console.warn('Webcam upload failed:', wcRes.status);
     }
@@ -267,7 +310,7 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
   broadcastState();
 
   // Step 3: Mark as ready
-  const finalizeRes = await fetchWithTimeout(`${serverUrl}/api/videos/${id}`, {
+  const finalizeRes = await fetchWithStallDetection(`${serverUrl}/api/videos/${id}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: {
