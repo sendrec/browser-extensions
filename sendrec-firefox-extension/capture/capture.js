@@ -80,13 +80,28 @@
       // Tracks completion of both recorders before uploading
       let screenDone = !recordingStream; // true if no screen to record
       let webcamDone = !capturedWebcamStream; // true if no webcam to record
+      let uploadStarted = false;
 
       function tryUpload() {
+        if (uploadStarted) return;
         if (screenDone && webcamDone) {
+          uploadStarted = true;
           const mainBlob = screenBlob || webcamBlob;
           const secondaryBlob = screenBlob ? webcamBlob : null;
           bgPage.handleRecordingBlobs(mainBlob, secondaryBlob);
         }
+      }
+
+      function forceWebcamDoneIfStuck(reason) {
+        if (!capturedWebcamStream || webcamDone) return;
+        console.warn('Forcing webcam completion:', reason);
+        webcamDone = true;
+        tryUpload();
+      }
+
+      function finalizeRecorderError(recorderName, err) {
+        const message = (err && err.message) ? err.message : 'Unknown recorder error';
+        console.error(`${recorderName} recorder error:`, message);
       }
 
       if (recordingStream) {
@@ -103,6 +118,12 @@
 
         screenRecorder.onstop = () => {
           screenBlob = new Blob(screenChunks, { type: mimeType });
+          screenDone = true;
+          tryUpload();
+        };
+
+        screenRecorder.onerror = (event) => {
+          finalizeRecorderError('Screen', event && event.error ? event.error : event);
           screenDone = true;
           tryUpload();
         };
@@ -139,6 +160,12 @@
           tryUpload();
         };
 
+        webcamRecorder.onerror = (event) => {
+          finalizeRecorderError('Webcam', event && event.error ? event.error : event);
+          webcamDone = true;
+          tryUpload();
+        };
+
         webcamRecorder.start(1000);
       }
 
@@ -155,6 +182,8 @@
           if (webcamRecorder && webcamRecorder.state !== 'inactive') {
             webcamRecorder.stop();
           }
+          // Firefox can occasionally miss webcam recorder onstop; don't block main upload.
+          setTimeout(() => forceWebcamDoneIfStuck('webcam recorder stop timeout'), 1500);
           // If no recorders were active, trigger upload directly
           if ((!screenRecorder || screenRecorder.state === 'inactive') &&
               (!webcamRecorder || webcamRecorder.state === 'inactive')) {
