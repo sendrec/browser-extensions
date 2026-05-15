@@ -247,7 +247,7 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
 
   if (webcamBlob) {
     body.webcamFileSize = webcamBlob.size;
-    body.webcamContentType = mimeType.split(';')[0];
+    body.webcamContentType = (webcamBlob.type || 'video/webm').split(';')[0];
   }
 
   // Step 1: Create video record
