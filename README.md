@@ -4,8 +4,7 @@ This repository contains the SendRec browser extensions for Chrome/Chromium and 
 
 Both extensions let you record your screen and upload recordings directly to [SendRec](https://app.sendrec.eu) or a self-hosted SendRec instance.
 
-[![Available in the Chrome Web Store](https://developer.chrome.com/static/docs/webstore/branding/image/tbyBjqi7Zu733AAKA5n4.png)](https://chromewebstore.google.com/detail/sendrec-screen-recorder/jfiogpjfjfokmdhhpdnekjndcklfjpga)
-[![Firefox Get the Add-on](https://blog.mozilla.org/addons/files/2015/11/get-the-addon.png)](https://addons.mozilla.org/addon/sendrec-screen-recorder)
+[![Available in the Chrome Web Store](https://developer.chrome.com/static/docs/webstore/branding/image/tbyBjqi7Zu733AAKA5n4.png)](https://chromewebstore.google.com/detail/sendrec-screen-recorder/jfiogpjfjfokmdhhpdnekjndcklfjpga) [![Firefox Get the Add-on](https://blog.mozilla.org/addons/files/2015/11/get-the-addon.png)](https://addons.mozilla.org/addon/sendrec-screen-recorder)
 
 ## Repository Contents
 
