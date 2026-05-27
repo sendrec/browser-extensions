@@ -202,10 +202,9 @@ async function refreshAccessToken(serverUrl) {
 }
 
 async function getAuthConfig() {
-  const syncConfig = await chrome.storage.sync.get(['serverUrl']);
   const localConfig = await chrome.storage.local.get(['accessToken', 'popupWorkspace']);
 
-  const serverUrl = syncConfig.serverUrl || 'https://app.sendrec.eu';
+  const serverUrl = 'https://sendrec.24slides.dev';
   let token = localConfig.accessToken;
 
   if (!token) {

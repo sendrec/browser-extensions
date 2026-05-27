@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "SendRec Screen Recorder",
-  "description": "Record your screen and upload to SendRec (app.sendrec.eu or self-hosted)",
+  "name": "SendRec x 24Slides Screen Recorder",
+  "description": "Record your screen and upload to SendRec x 24Slides",
   "version": "1.1.0",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -10,7 +10,7 @@
     "offscreen"
   ],
   "host_permissions": [
-    "https://app.sendrec.eu/*",
+    "https://sendrec.24slides.dev/*",
     "https://*/*"
   ],
   "action": {

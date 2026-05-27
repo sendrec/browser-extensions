@@ -80,6 +80,22 @@ body {
   color: var(--color-accent);
 }
 
+.title-x {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.title-24 {
+  color: #e63946;
+  font-weight: 700;
+}
+
+.title-slides {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
 .btn-icon {
   background: none;
   border: none;

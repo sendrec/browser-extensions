@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnExit.addEventListener('click', () => window.close());
 
   const form = document.getElementById('settings-form');
-  const serverUrl = document.getElementById('server-url');
   const email = document.getElementById('email');
   const password = document.getElementById('password');
   const btnLogout = document.getElementById('btn-logout');
@@ -16,13 +15,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loginStatus = document.getElementById('login-status');
   const loginStatusText = document.getElementById('login-status-text');
 
+  const SERVER_URL = 'https://sendrec.24slides.dev';
+
   // Load saved settings
-  const config = await browser.storage.sync.get([
-    'serverUrl', 'email'
-  ]);
+  const config = await browser.storage.sync.get(['email']);
   const localConfig = await browser.storage.local.get(['accessToken']);
 
-  if (config.serverUrl) serverUrl.value = config.serverUrl;
   if (config.email) email.value = config.email;
 
   // Show logged-in status
@@ -39,14 +37,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const url = serverUrl.value.trim().replace(/\/$/, '');
+    const url = SERVER_URL;
     const emailVal = email.value.trim();
     const passwordVal = password.value;
-
-    if (!url) {
-      showMessage('Please enter a server URL', 'error');
-      return;
-    }
 
     if (!emailVal) {
       showMessage('Please enter your email', 'error');
@@ -96,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Save settings
     await browser.storage.sync.set({
-      serverUrl: url,
+      serverUrl: SERVER_URL,
       email: emailVal
     });
 

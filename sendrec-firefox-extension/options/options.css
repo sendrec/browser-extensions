@@ -72,6 +72,22 @@ h1 .title-rec {
   color: var(--color-accent);
 }
 
+h1 .title-x {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+  margin: 0 2px;
+}
+
+h1 .title-24 {
+  color: #e63946;
+  font-weight: 700;
+}
+
+h1 .title-slides {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -187,6 +203,7 @@ h1 .title-rec {
   justify-content: center;
   gap: 12px;
   margin-top: 24px;
+  margin-bottom: 16px;
 }
 
 .btn {
@@ -269,4 +286,52 @@ h1 .title-rec {
   margin-bottom: 16px;
   display: block;
   text-align: center;
+}
+
+.forgot-password-box {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 0;
+}
+
+.corporate-notice {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.corporate-notice p {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.forgot-password-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.btn-forgot {
+  display: inline-block;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  font-size: 13px;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all 0.15s ease;
+  min-height: 36px;
+}
+
+.btn-forgot:hover {
+  background: var(--color-accent-hover);
 }

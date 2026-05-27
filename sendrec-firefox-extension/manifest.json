@@ -1,11 +1,11 @@
 {
   "manifest_version": 2,
-  "name": "SendRec Screen Recorder",
-  "description": "Record your screen and upload to SendRec (app.sendrec.eu or self-hosted)",
+  "name": "SendRec x 24Slides Screen Recorder",
+  "description": "Record your screen and upload to SendRec x 24Slides",
   "version": "1.1.0",
   "browser_specific_settings": {
     "gecko": {
-      "id": "sendrec-plugin@sendrec",
+      "id": "sendrec-24slides-plugin@sendrec",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["none"]
@@ -15,7 +15,7 @@
   "permissions": [
     "storage",
     "tabs",
-    "https://app.sendrec.eu/*",
+    "https://sendrec.24slides.dev/*",
     "https://*/*"
   ],
   "browser_action": {
