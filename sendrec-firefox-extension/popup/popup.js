@@ -24,8 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const workspaceSelect = document.getElementById('workspace-select');
 
   // Check configuration
-  const config = await browser.storage.sync.get(['email']);
-  if (!config.email) {
+  const config = await browser.storage.sync.get(['serverUrl', 'email']);
+  if (!config.serverUrl || !config.email) {
     notConfigured.classList.remove('hidden');
   }
 
@@ -96,7 +96,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('logo-link').addEventListener('click', async () => {
-    browser.tabs.create({ url: 'https://sendrec.24slides.dev' });
+    const cfg = await browser.storage.sync.get(['serverUrl']);
+    const url = cfg.serverUrl || 'https://app.sendrec.eu';
+    browser.tabs.create({ url });
   });
 
   // Restore state from background
