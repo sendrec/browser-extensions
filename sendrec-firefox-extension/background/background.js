@@ -213,6 +213,8 @@ function putBlobWithStallDetection(url, blob, contentType, timeoutMs, label, onP
       }, STALL_TIMEOUT_MS);
     };
 
+    // Enforced here rather than via xhr.timeout so the abort reason survives
+    // into the rejection message.
     const mainTimer = setTimeout(() => {
       abortReason = `${label} timed out after ${Math.floor(timeoutMs / 1000)}s`;
       xhr.abort();
@@ -235,7 +237,6 @@ function putBlobWithStallDetection(url, blob, contentType, timeoutMs, label, onP
     xhr.upload.onloadend = () => clearStallTimer();
     xhr.onload = () => settle(resolve, { ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status });
     xhr.onerror = () => settle(reject, new Error(`${label} failed: network error`));
-    xhr.ontimeout = () => settle(reject, new Error(`${label} timed out`));
     xhr.onabort = () => settle(reject, new Error(abortReason || `${label} aborted`));
 
     xhr.open('PUT', url, true);
