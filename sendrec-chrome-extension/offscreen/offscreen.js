@@ -308,14 +308,14 @@ function putBlobWithStallDetection(url, blob, contentType, timeoutMs, label, onP
   });
 }
 
-// Calculate upload timeout based on file size
-// Assumes minimum 100kbps connection speed + 60s buffer.
-// The upper bound stays under the server's 30 minute presigned URL lifetime,
-// past which S3 rejects the PUT anyway.
+// Calculate upload timeout based on file size.
+// Assumes a floor of 100 KiB/s upstream plus a 60s buffer. The upper bound
+// stays under the server's 30 minute presigned URL lifetime, past which S3
+// rejects the PUT anyway.
 function getUploadTimeout(fileSizeBytes) {
-  const minSpeedBps = 100 * 1024; // 100 kbps minimum
-  const bufferMs = 60000; // 60s buffer
-  const estimatedMs = (fileSizeBytes / minSpeedBps) * 1000 + bufferMs;
+  const minSpeedBytesPerSec = 100 * 1024;
+  const bufferMs = 60000;
+  const estimatedMs = (fileSizeBytes / minSpeedBytesPerSec) * 1000 + bufferMs;
   return Math.min(Math.max(estimatedMs, 180000), 28 * 60 * 1000);
 }
 
@@ -393,17 +393,22 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
 
   chrome.runtime.sendMessage({ type: 'OFFSCREEN_UPLOAD_PROGRESS', progress: 70 });
 
-  // Upload webcam if present
+  // A webcam failure must not abort the flow — the screen recording is already
+  // uploaded and would stay stuck in 'uploading' if we never reached finalize.
   if (webcamBlob && videoData.webcamUploadUrl) {
-    const wcRes = await putBlobWithStallDetection(
-      videoData.webcamUploadUrl,
-      webcamBlob,
-      body.webcamContentType,
-      getUploadTimeout(webcamBlob.size),
-      'Webcam upload'
-    );
-    if (!wcRes.ok) {
-      console.warn('Webcam upload failed:', wcRes.status);
+    try {
+      const wcRes = await putBlobWithStallDetection(
+        videoData.webcamUploadUrl,
+        webcamBlob,
+        body.webcamContentType,
+        getUploadTimeout(webcamBlob.size),
+        'Webcam upload'
+      );
+      if (!wcRes.ok) {
+        console.warn('Webcam upload failed:', wcRes.status);
+      }
+    } catch (err) {
+      console.warn('Webcam upload failed:', err);
     }
   }
 
