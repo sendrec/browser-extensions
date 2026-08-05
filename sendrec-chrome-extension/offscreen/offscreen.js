@@ -123,6 +123,13 @@ async function handleStart(options) {
       // Use webcam as the main recorder for stop handling
       screenRecorder = webcamRecorder;
       screenChunks = webcamChunks;
+      // Re-point the handler: it captured the `webcamChunks` variable, which is
+      // rebound to a new array below, so chunks would never reach screenChunks.
+      screenRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          screenChunks.push(e.data);
+        }
+      };
       webcamRecorder = null;
       webcamChunks = [];
 
@@ -223,65 +230,93 @@ function cleanup() {
   webcamStream = null;
 }
 
-// Fetch with stall detection - aborts if upload doesn't make progress for 60s
-async function fetchWithStallDetection(url, options, timeoutMs, label) {
+// Aborting only after two minutes without a single byte moving tolerates
+// Wi-Fi roaming, VPN reconnects and bursty progress on slow links.
+const STALL_TIMEOUT_MS = 120000;
+
+// Fetch with an overall deadline. Used for the small JSON API calls.
+async function fetchWithTimeout(url, options, timeoutMs, label) {
   const controller = new AbortController();
-  let stalledTimer = null;
-  let completedOrFailed = false;
-  
-  const cleanup = () => {
-    completedOrFailed = true;
-    if (stalledTimer) clearTimeout(stalledTimer);
-  };
-  
-  // Set stall detector - abort if stuck for 60 seconds
-  stalledTimer = setTimeout(() => {
-    if (!completedOrFailed) {
-      controller.abort();
-    }
-  }, 60000);
-  
-  // Also set main timeout as safety net
-  const mainTimer = setTimeout(() => {
-    if (!completedOrFailed) {
-      controller.abort();
-    }
-  }, timeoutMs);
-  
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    const res = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    cleanup();
-    return res;
+    return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
-    cleanup();
-    clearTimeout(mainTimer);
     if (err && err.name === 'AbortError') {
-      // Determine if it was stall timeout (< 60s) or main timeout
-      const isStall = stalledTimer !== null;
-      if (isStall) {
-        throw new Error(`${label} stalled (no progress for 60s)`);
-      } else {
-        throw new Error(`${label} timed out after ${Math.floor(timeoutMs / 1000)}s`);
-      }
+      throw new Error(`${label} timed out after ${Math.floor(timeoutMs / 1000)}s`);
     }
     throw err;
   } finally {
-    cleanup();
-    clearTimeout(mainTimer);
+    clearTimeout(timer);
   }
 }
 
+// Blob PUT via XHR so upload progress events can drive real stall detection.
+// fetch() exposes no upload progress, so a wall-clock timer there would abort
+// healthy long uploads and leave a truncated object on the server.
+function putBlobWithStallDetection(url, blob, contentType, timeoutMs, label, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+    let stallTimer = null;
+    let abortReason = null;
+
+    const clearStallTimer = () => {
+      if (stallTimer !== null) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+      }
+    };
+
+    const armStallTimer = () => {
+      clearStallTimer();
+      stallTimer = setTimeout(() => {
+        abortReason = `${label} stalled (no progress for ${Math.floor(STALL_TIMEOUT_MS / 1000)}s)`;
+        xhr.abort();
+      }, STALL_TIMEOUT_MS);
+    };
+
+    const mainTimer = setTimeout(() => {
+      abortReason = `${label} timed out after ${Math.floor(timeoutMs / 1000)}s`;
+      xhr.abort();
+    }, timeoutMs);
+
+    const settle = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearStallTimer();
+      clearTimeout(mainTimer);
+      fn(arg);
+    };
+
+    xhr.upload.onprogress = (e) => {
+      armStallTimer();
+      if (onProgress && e.lengthComputable && e.total > 0) {
+        onProgress(e.loaded / e.total);
+      }
+    };
+    xhr.upload.onloadend = () => clearStallTimer();
+    xhr.onload = () => settle(resolve, { ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status });
+    xhr.onerror = () => settle(reject, new Error(`${label} failed: network error`));
+    xhr.ontimeout = () => settle(reject, new Error(`${label} timed out`));
+    xhr.onabort = () => settle(reject, new Error(abortReason || `${label} aborted`));
+
+    xhr.open('PUT', url, true);
+    xhr.setRequestHeader('Content-Type', contentType);
+    armStallTimer();
+    xhr.send(blob);
+  });
+}
+
 // Calculate upload timeout based on file size
-// Assumes minimum 100kbps connection speed + 60s buffer
+// Assumes minimum 100kbps connection speed + 60s buffer.
+// The upper bound stays under the server's 30 minute presigned URL lifetime,
+// past which S3 rejects the PUT anyway.
 function getUploadTimeout(fileSizeBytes) {
   const minSpeedBps = 100 * 1024; // 100 kbps minimum
   const bufferMs = 60000; // 60s buffer
   const estimatedMs = (fileSizeBytes / minSpeedBps) * 1000 + bufferMs;
-  // Cap between 3 min and 20 min
-  return Math.min(Math.max(estimatedMs, 180000), 1200000);
+  return Math.min(Math.max(estimatedMs, 180000), 28 * 60 * 1000);
 }
 
 async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
@@ -320,7 +355,7 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
     createHeaders['X-Organization-Id'] = config.organizationId;
   }
 
-  const createRes = await fetchWithStallDetection(`${serverUrl}/api/videos`, {
+  const createRes = await fetchWithTimeout(`${serverUrl}/api/videos`, {
     method: 'POST',
     credentials: 'include',
     headers: createHeaders,
@@ -338,11 +373,19 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
   // Step 2: Upload screen recording to presigned URL
   chrome.runtime.sendMessage({ type: 'OFFSCREEN_UPLOAD_PROGRESS', progress: 30 });
 
-  const uploadRes = await fetchWithStallDetection(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': body.contentType },
-    body: screenBlob
-  }, getUploadTimeout(screenBlob.size), 'Screen upload');
+  const uploadRes = await putBlobWithStallDetection(
+    uploadUrl,
+    screenBlob,
+    body.contentType,
+    getUploadTimeout(screenBlob.size),
+    'Screen upload',
+    (fraction) => {
+      chrome.runtime.sendMessage({
+        type: 'OFFSCREEN_UPLOAD_PROGRESS',
+        progress: 30 + Math.round(fraction * 40)
+      });
+    }
+  );
 
   if (!uploadRes.ok) {
     throw new Error(`Failed to upload video: ${uploadRes.status}`);
@@ -352,11 +395,13 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
 
   // Upload webcam if present
   if (webcamBlob && videoData.webcamUploadUrl) {
-    const wcRes = await fetchWithStallDetection(videoData.webcamUploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': body.webcamContentType },
-      body: webcamBlob
-    }, getUploadTimeout(webcamBlob.size), 'Webcam upload');
+    const wcRes = await putBlobWithStallDetection(
+      videoData.webcamUploadUrl,
+      webcamBlob,
+      body.webcamContentType,
+      getUploadTimeout(webcamBlob.size),
+      'Webcam upload'
+    );
     if (!wcRes.ok) {
       console.warn('Webcam upload failed:', wcRes.status);
     }
@@ -365,7 +410,7 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
   chrome.runtime.sendMessage({ type: 'OFFSCREEN_UPLOAD_PROGRESS', progress: 90 });
 
   // Step 3: Mark as ready
-  await fetchWithStallDetection(`${serverUrl}/api/videos/${id}`, {
+  const finalizeRes = await fetchWithTimeout(`${serverUrl}/api/videos/${id}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: {
@@ -374,6 +419,13 @@ async function uploadToSendRec(screenBlob, webcamBlob, mimeType) {
     },
     body: JSON.stringify({ status: 'ready' })
   }, 30000, 'Finalize video request');
+
+  // Without this check the recording is reported as uploaded while the server
+  // rejected verification and leaves it stuck in the 'uploading' state.
+  if (!finalizeRes.ok) {
+    const errText = await finalizeRes.text().catch(() => '');
+    throw new Error(`Failed to finalize video: ${finalizeRes.status} ${errText}`);
+  }
 
   // Done
   chrome.runtime.sendMessage({
